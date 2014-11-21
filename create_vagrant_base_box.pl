@@ -7,7 +7,7 @@ use strict;
 #                          V A R I A B L E S
 # ===========================================================================
 
-my $f_szVagrantBoxesBaseDirectory = "/home/chk052/msivagranttools/vagrant_boxes";
+my $f_szVagrantBoxesBaseDirectory = "/vagrant/vagrant_boxes";
 
 # This is the name that VirtualBox uses for the VM.
 my $f_szBaseBoxName = "boot_vagrant_org";
