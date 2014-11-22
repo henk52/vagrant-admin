@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
+use Data::Dumper;
 
 #  Generate a vagrant box from a virtualbox instance.
 
@@ -7,7 +8,7 @@ use strict;
 #                          V A R I A B L E S
 # ===========================================================================
 
-my $f_szVagrantBoxesBaseDirectory = "/vagrant/vagrant_boxes";
+my $f_szVagrantBoxesBaseDirectory = "/home/ME/msivagranttools/vagrant_boxes";
 
 # This is the name that VirtualBox uses for the VM.
 my $f_szBaseBoxName = "boot_vagrant_org";
@@ -21,6 +22,28 @@ my $f_szVagrantDeploymentName = "srv-$szDistro-$szReleaseName$szArchBits";
 # ============================================================
 #                       F U N C T I O N S
 # ============================================================
+
+
+# -----------------------------------------------------------------
+# ---------------
+sub ReadCfg {
+  my $szFileName = shift;
+  my $refhConfig = shift;
+
+  open(CFGFILE, "<$szFileName") || die("!!! Unable to open file '$szFileName' for read: $!");
+  while(<CFGFILE>) {
+    chomp;
+#    my @arKeyAndValue = split(':', $_);
+#    $refhConfig->{$arKeyAndValue[0]} = $arKeyAndValue[1];
+    #$strn =~ m/([0-9]{12})/;
+    $_ =~ m/(.+?):\s*(.*)/;
+    $refhConfig->{$1} = $2;
+  }
+  close(CFGFILE);
+
+#  print Dumper(%{$refhConfig});
+}
+
 
 
 # -----------------------------------------------------------------
@@ -68,6 +91,37 @@ sub RemoveOptionalEscapeSequence {
   return($szReturnString);
 }
 
+# -----------------------------------------------------------------
+# ---------------
+sub WriteJsonFile {
+  my $szBoxName = shift;
+  my $refhConfiguration = shift;
+
+  my %hConfiguration = %{$refhConfiguration};
+
+#  print Dumper(\%hConfiguration);
+
+  open(JSON, ">${szBoxName}.json") || die("!!! Unable to open file for write: $!");
+  print JSON "{\n";
+  print JSON "  \"description\": \"$hConfiguration{description}\",\n";
+  print JSON "  \"short_description\": \"$hConfiguration{short_description}\",\n";
+  print JSON "  \"name\": \"$hConfiguration{company}/$szBoxName\",\n";
+  print JSON "  \"versions\": [{\n";
+  print JSON "      \"version\": \"$hConfiguration{version}\",\n";
+  print JSON "      \"status\": \"active\",\n";
+  print JSON "      \"description_html\": \"$hConfiguration{description_html}\",\n";
+  print JSON "      \"description_markdown\": \"$hConfiguration{description_markdown}\",\n";
+  print JSON "      \"providers\": [{\n";
+  print JSON "          \"name\": \"virtualbox\",\n";
+  print JSON "          \"url\": \"$hConfiguration{providers_url}/${szBoxName}.box\"\n";
+  print JSON "      }]\n";
+  print JSON "  }]\n";
+  print JSON "}\n";
+  close(JSON);
+}
+
+
+
 # ============================================================
 
                 #     #    #      ###   #     #
@@ -105,7 +159,16 @@ while ( $#ARGV > -1 ) {
   }
 }
 
+
+
 my $szVagrantBoxName = "$f_szVagrantDeploymentName.box";
+
+my %hConfiguration;
+
+ReadCfg("srv-fedora-heisenbug64.cfg", \%hConfiguration);
+#WriteJsonFile($f_szVagrantDeploymentName, %hConfiguration);
+WriteJsonFile($f_szVagrantDeploymentName, \%hConfiguration);
+die("TESTING.");
 
 my $szVagrantBoxFile = "$f_szVagrantBoxesBaseDirectory/$szVagrantBoxName";
 if ( -f $szVagrantBoxFile )  {
@@ -129,3 +192,4 @@ if ( $? == 0 ) {
 } else {
   die("!!! Failed to create the new vagrant box.");
 }
+
