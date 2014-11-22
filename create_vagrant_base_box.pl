@@ -19,6 +19,17 @@ my $szArchBits = "64";
 
 my $f_szVagrantDeploymentName = "srv-$szDistro-$szReleaseName$szArchBits";
 
+my %f_hConfiguration = (
+ "description" => "(long) description",
+ "short_description" => "Short description.",
+ "company"  => "company",
+ "version" => "0.0.0",
+ "description_html" => "description_html",
+ "description_markdown" => "description_markdown",
+ "providers_url" => "http:\/\/XXX.XXX.XXX.XXX/Storage/Vagrant/"
+
+                       );
+
 # ============================================================
 #                       F U N C T I O N S
 # ============================================================
@@ -122,6 +133,18 @@ sub WriteJsonFile {
 
 
 
+# -----------------------------------------------------------------
+# ---------------
+sub ShowPostOperations {
+  my $szVagrantBoxName = shift;
+
+  print "To share this box do the following:\n";
+  print "   scp $szVagrantBoxName $f_szVagrantDeploymentName.json ADM\@SERVER:/Path\n";
+}
+
+
+
+
 # ============================================================
 
                 #     #    #      ###   #     #
@@ -143,16 +166,25 @@ while ( $#ARGV > -1 ) {
       die("!!! Missing parameter for --srcname");
     }
   } elsif ( $ARGV[0] eq "--dstname" ) {
-        my $szDummy = shift @ARGV;
+    my $szDummy = shift @ARGV;
     if ( ($#ARGV > -1) && ( $ARGV[0] !~ /^--/ ) ) {
       $f_szVagrantDeploymentName = shift @ARGV;
     } else {
       die("!!! Missing parameter for --dstname");
     }
-  } elsif ( $ARGV[0] eq "help" ) {
+  } elsif ( $ARGV[0] eq "--sharecfg" ) {
+    my $szDummy = shift @ARGV;
+    if ( ($#ARGV > -1) && ( $ARGV[0] !~ /^--/ ) ) {
+      my $szFileName = shift @ARGV;
+      ReadCfg($szFileName, \%f_hConfiguration);
+    } else {
+      die("!!! Missing parameter for --sharecfg");
+    }
+  } elsif ( ( $ARGV[0] eq "help" ) || ( $ARGV[0] eq "--help" ) || ( $ARGV[0] eq "-h" )){
     print "Generate a vagrant box from a virtualbox instance.\n";
     print "   --srcname VIRTUALBOX_NAME (default: $f_szBaseBoxName)\n";
     print "   --dstname VAGRANT_BOX_NAME (default: $f_szVagrantDeploymentName)\n";
+    print "   --sharecfg FILE_NAME (default: none) Input to json file.\n";
     exit;
   } else {
     die("!!! Unknown option: $ARGV[0]");
@@ -163,12 +195,9 @@ while ( $#ARGV > -1 ) {
 
 my $szVagrantBoxName = "$f_szVagrantDeploymentName.box";
 
-my %hConfiguration;
 
-ReadCfg("srv-fedora-heisenbug64.cfg", \%hConfiguration);
-#WriteJsonFile($f_szVagrantDeploymentName, %hConfiguration);
-WriteJsonFile($f_szVagrantDeploymentName, \%hConfiguration);
-die("TESTING.");
+WriteJsonFile($f_szVagrantDeploymentName, \%f_hConfiguration);
+ShowPostOperations($szVagrantBoxName);
 
 my $szVagrantBoxFile = "$f_szVagrantBoxesBaseDirectory/$szVagrantBoxName";
 if ( -f $szVagrantBoxFile )  {
@@ -193,3 +222,4 @@ if ( $? == 0 ) {
   die("!!! Failed to create the new vagrant box.");
 }
 
+ShowPostOperations($szVagrantBoxName);
