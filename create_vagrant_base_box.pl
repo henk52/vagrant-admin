@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w
 use strict;
 use Data::Dumper;
+use File::Basename;
+
 
 #  Generate a vagrant box from a virtualbox instance.
 
@@ -20,13 +22,16 @@ my $szArchBits = "64";
 my $f_szVagrantDeploymentName = "srv-$szDistro-$szReleaseName$szArchBits";
 
 my %f_hConfiguration = (
- "description" => "(long) description",
- "short_description" => "Short description.",
- "company"  => "local",
- "version" => "0.0.0",
- "description_html" => "description_html",
- "description_markdown" => "description_markdown",
- "providers_url" => "http:\/\/XXX.XXX.XXX.XXX/Storage/Vagrant/"
+ "description"             => "(long) description",
+ "short_description"       => "Short description.",
+ "company"                 => "local",
+ "version"                 => "0.0.0",
+ "description_html"        => "description_html",
+ "description_markdown"    => "description_markdown",
+ "RemoteServerIpAddr"      => "10.1.2.3",
+ "RemoteServerStoragePath" => "/var/webstorage/vagrant",
+ "WebServerPath"           => "/storage/vagrant",
+ "RemoteStorageOwner"      => "ADM"
                        );
 
 
@@ -116,7 +121,7 @@ sub WriteJsonFile {
 
 #  print Dumper(\%hConfiguration);
 
-  open(JSON, ">${szBoxName}.json") || die("!!! Unable to open file for write: $!");
+  open(JSON, ">$f_szVagrantBoxesBaseDirectory/${szBoxName}.json") || die("!!! Unable to open file for write: $!");
   print JSON "{\n";
   print JSON "  \"description\": \"$hConfiguration{description}\",\n";
   print JSON "  \"short_description\": \"$hConfiguration{short_description}\",\n";
@@ -128,7 +133,7 @@ sub WriteJsonFile {
   print JSON "      \"description_markdown\": \"$hConfiguration{description_markdown}\",\n";
   print JSON "      \"providers\": [{\n";
   print JSON "          \"name\": \"virtualbox\",\n";
-  print JSON "          \"url\": \"$hConfiguration{providers_url}/${szBoxName}.box\"\n";
+  print JSON "          \"url\": \"http:\\/\\/$hConfiguration{RemoteServerIpAddr}:$hConfiguration{WebServerPath}/${szBoxName}.box\"\n";
   print JSON "      }]\n";
   print JSON "  }]\n";
   print JSON "}\n";
@@ -143,7 +148,19 @@ sub ShowPostOperations {
   my $szVagrantBoxName = shift;
 
   print "To share this box do the following:\n";
-  print "   scp $szVagrantBoxName $f_szVagrantDeploymentName.json ADM\@SERVER:/Path\n";
+  print "   scp $f_szVagrantBoxesBaseDirectory/$szVagrantBoxName $f_szVagrantBoxesBaseDirectory/$f_szVagrantDeploymentName.json $f_hConfiguration{RemoteStorageOwner}\@$f_hConfiguration{RemoteServerIpAddr}:$f_hConfiguration{RemoteServerStoragePath}\n";
+}
+
+sub AddBoxLocally {
+if ( $? == 0 ) {
+  AddNewBox($f_szVagrantDeploymentName, $f_szVagrantBoxesBaseDirectory);
+  print "To start using the new vagrant box:\n";
+  print "  mkdir NEW_RANDOM_DIR\n";
+  print "  cd NEW_RANDOM_DIR\n";
+  print "  vagrant init $f_szVagrantDeploymentName\n";
+} else {
+  die("!!! Failed to create the new vagrant box.");
+}
 }
 
 
@@ -183,15 +200,24 @@ while ( $#ARGV > -1 ) {
     my $szDummy = shift @ARGV;
     if ( ($#ARGV > -1) && ( $ARGV[0] !~ /^--/ ) ) {
       my $szFileName = shift @ARGV;
+      $f_hConfiguration{'ShareCfgFileName'} = $szFileName;
       ReadCfg($szFileName, \%f_hConfiguration);
     } else {
       die("!!! Missing parameter for --sharecfg");
+    }
+  } elsif ( $ARGV[0] eq "--vagrantfile" ) {
+    my $szDummy = shift @ARGV;
+    if ( ($#ARGV > -1) && ( $ARGV[0] !~ /^--/ ) ) {
+      $f_hConfiguration{'vagrantfile'} = shift @ARGV;
+    } else {
+      die("!!! Missing parameter for --vagrantfile");
     }
   } elsif ( ( $ARGV[0] eq "help" ) || ( $ARGV[0] eq "--help" ) || ( $ARGV[0] eq "-h" )){
     print "Generate a vagrant box from a virtualbox instance.\n";
     print "   --srcname VIRTUALBOX_NAME (default: $f_szBaseBoxName)\n";
     print "   --dstname VAGRANT_BOX_NAME (default: $f_szVagrantDeploymentName)\n";
     print "   --sharecfg FILE_NAME (default: none) Input to json file.\n";
+    print "   --vagrantfile VAGRANT_FILE (default: none) Vagrantfile information to include in box package.\n";
     exit;
   } else {
     die("!!! Unknown option: $ARGV[0]");
@@ -202,9 +228,17 @@ while ( $#ARGV > -1 ) {
 
 my $szVagrantBoxName = "$f_szVagrantDeploymentName.box";
 
+ReadCfg("vagrant_distribution.cfg", \%f_hConfiguration);
+
+if ( ! exists( $f_hConfiguration{'vagrantfile'} ) && exists( $f_hConfiguration{'VagrantfileRelativeToSharCfg'} ) ) {
+  my ($name,$path,$suffix) = fileparse($f_hConfiguration{'ShareCfgFileName'});
+  #print "DDD $f_hConfiguration{'VagrantfileRelativeToSharCfg'}\n    $name\n    $path\n    $suffix\n";
+  $f_hConfiguration{'vagrantfile'} = "${path}$f_hConfiguration{'VagrantfileRelativeToSharCfg'}";
+}
 
 WriteJsonFile($f_szVagrantDeploymentName, \%f_hConfiguration);
 ShowPostOperations($szVagrantBoxName);
+
 
 my $szVagrantBoxFile = "$f_szVagrantBoxesBaseDirectory/$szVagrantBoxName";
 if ( -f $szVagrantBoxFile )  {
@@ -216,17 +250,15 @@ if ( -f $szVagrantBoxFile )  {
 
 # TODO V support --vagrantfile ...txt
 my $szCmd = "cd $f_szVagrantBoxesBaseDirectory; vagrant package --base $f_szBaseBoxName --output $szVagrantBoxName";
+if ( exists ( $f_hConfiguration{'vagrantfile'} ) ) {
+  $szCmd .= " --vagrantfile $f_hConfiguration{'vagrantfile'}";
+}
 print "III Executing: $szCmd\n";
 
+#die("!!! TESTING ENDS !!!");
+
 `$szCmd`;
-if ( $? == 0 ) {
-  AddNewBox($f_szVagrantDeploymentName, $f_szVagrantBoxesBaseDirectory);
-  print "To start using the new vagrant box:\n";
-  print "  mkdir NEW_RANDOM_DIR\n";
-  print "  cd NEW_RANDOM_DIR\n";
-  print "  vagrant init $f_szVagrantDeploymentName\n";
-} else {
-  die("!!! Failed to create the new vagrant box.");
-}
+#AddBoxLocally();
+
 
 ShowPostOperations($szVagrantBoxName);

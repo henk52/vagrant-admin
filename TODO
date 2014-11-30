@@ -1,13 +1,2 @@
-Box directory
-Source machine dir, to get box information, like name etc.
-Update the cfg reader.
 Generate the first box.
-
-
-Put the IP addr in the json file
-print the real scp address in the end: scp /home/cadm/vagrant_boxes/devmachine.box devmachine.json cadm@10.1.233.3:/var/webstorage/vagrant
-Get the various information form the cfg file
 document what the cfg file can contain, maybe provide an .example file.
-Include the WebStoragePath: definition /storage/vagrant
-put the .json file with the .box file.
-Don't add the .box localy.
