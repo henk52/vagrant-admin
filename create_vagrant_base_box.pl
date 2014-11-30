@@ -8,7 +8,7 @@ use Data::Dumper;
 #                          V A R I A B L E S
 # ===========================================================================
 
-my $f_szVagrantBoxesBaseDirectory = "/home/ME/msivagranttools/vagrant_boxes";
+my $f_szVagrantBoxesBaseDirectory = "$ENV{HOME}/vagrant_boxes";
 
 # This is the name that VirtualBox uses for the VM.
 my $f_szBaseBoxName = "boot_vagrant_org";
@@ -22,13 +22,16 @@ my $f_szVagrantDeploymentName = "srv-$szDistro-$szReleaseName$szArchBits";
 my %f_hConfiguration = (
  "description" => "(long) description",
  "short_description" => "Short description.",
- "company"  => "company",
+ "company"  => "local",
  "version" => "0.0.0",
  "description_html" => "description_html",
  "description_markdown" => "description_markdown",
  "providers_url" => "http:\/\/XXX.XXX.XXX.XXX/Storage/Vagrant/"
-
                        );
+
+
+
+
 
 # ============================================================
 #                       F U N C T I O N S
@@ -38,22 +41,23 @@ my %f_hConfiguration = (
 # -----------------------------------------------------------------
 # ---------------
 sub ReadCfg {
-  my $szFileName = shift;
+  my $szConfigFile = shift;
   my $refhConfig = shift;
 
-  open(CFGFILE, "<$szFileName") || die("!!! Unable to open file '$szFileName' for read: $!");
-  while(<CFGFILE>) {
-    chomp;
-#    my @arKeyAndValue = split(':', $_);
-#    $refhConfig->{$arKeyAndValue[0]} = $arKeyAndValue[1];
-    #$strn =~ m/([0-9]{12})/;
-    $_ =~ m/(.+?):\s*(.*)/;
-    $refhConfig->{$1} = $2;
-  }
-  close(CFGFILE);
+  open(CFG, "<$szConfigFile") || die("!!! Unable to read $szConfigFile: $!");
 
-#  print Dumper(%{$refhConfig});
-}
+  while (<CFG>) {
+    chomp;
+
+    next if (/^\s*$/);  
+    next if (/^#/);  
+
+    my ( $szVariableName, $szValue ) = $_ =~ /(.*?)\s*:\s*(.*)/;
+    $refhConfig->{$szVariableName} = $szValue;
+  }
+
+  #  print Dumper(%{$refhConfig});
+} # end readcfg
 
 
 
@@ -156,6 +160,9 @@ sub ShowPostOperations {
                 #     # #     #   ###   #     #
 
 # ============================================================
+
+
+`mkdir $f_szVagrantBoxesBaseDirectory` unless( -d "$f_szVagrantBoxesBaseDirectory" );
 
 while ( $#ARGV > -1 ) {
   if ( $ARGV[0] eq "--srcname" ) {
